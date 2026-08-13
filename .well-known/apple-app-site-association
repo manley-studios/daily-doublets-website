@@ -1,0 +1,57 @@
+{
+  "activitycontinuation": {
+    "apps": [
+      "FZYZB7CMH5.com.msab.DailyDoublet",
+      "FZYZB7CMH5.com.msab.DailyDoublet-alpha",
+      "FZYZB7CMH5.com.msab.DailyDoublet-debug"
+    ]
+  },
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "FZYZB7CMH5.com.msab.DailyDoublet-alpha"
+        ],
+        "components": [
+          {
+            "/": "*",
+            "?": {
+              "difficulty": "*",
+              "date": "????-??-??",
+              "env": "alpha"
+            }
+          }
+        ]
+      },
+      {
+        "appIDs": [
+          "FZYZB7CMH5.com.msab.DailyDoublet-debug"
+        ],
+        "components": [
+          {
+            "/": "*",
+            "?": {
+              "difficulty": "*",
+              "date": "????-??-??",
+              "env": "debug"
+            }
+          }
+        ]
+      },
+      {
+        "appIDs": [
+          "FZYZB7CMH5.com.msab.DailyDoublet"
+        ],
+        "components": [
+          {
+            "/": "*",
+            "?": {
+              "difficulty": "*",
+              "date": "????-??-??"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

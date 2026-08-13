@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doublets</title>
+    <style>
+      html {
+        --color-light-bg: #ffffff;
+        --color-dark-bg: #1a202c;
+        --color-light-text: #1a202c;
+        --color-dark-text: #ffffff;
+
+        background-color: var(--color-light-bg);
+        color: var(--color-light-text);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html {
+          background-color: var(--color-dark-bg);
+          color: var(--color-dark-text);
+        }
+      }
+    </style>
+    <script type="text/javascript">
+      const l = window.location
+      const port = l.port ? `:${l.port}` : ''
+      const redirect = `${l.protocol}//${l.hostname}${port}/#${l.pathname}${l.search}`
+      window.location.replace(redirect)
+    </script>
+  </head>
+  <body>
+    <div class="min-h-screen"> 
+      </div>
+  </body>
+</html>
