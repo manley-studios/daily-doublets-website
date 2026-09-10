@@ -1,0 +1,23 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.msab.dailydoublet",
+      "sha256_cert_fingerprints": [
+        "37:BD:5E:E9:50:7C:4F:F7:0E:41:69:22:6D:39:80:07:88:67:97:4E:E2:F8:28:73:8F:F4:36:9A:26:21:3D:67",
+        "70:25:0E:C9:AE:7D:AE:FC:7C:39:75:06:E9:6D:9F:3F:C0:8E:6F:1A:E5:9C:02:F5:D1:F7:36:47:A9:00:AD:04"
+      ]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.msab.dailydoublet.debug",
+      "sha256_cert_fingerprints": [
+        "E4:FA:50:44:B6:51:F8:7A:DD:02:A6:A7:65:3F:CF:BC:5D:4E:A6:6F:DD:03:24:82:E8:B1:84:5B:4C:E0:84:86"
+      ]
+    }
+  }
+]
