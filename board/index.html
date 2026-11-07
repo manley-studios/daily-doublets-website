@@ -56,8 +56,7 @@ button.ghost{background:transparent;color:var(--mute);padding:4px 0;border:0;tex
   <h1>Features</h1>
   <div class="key"><span><b class="done">✓</b>done</span><span><b class="landed">●</b>on develop, needs proof</span><span><b class="ready">◆</b>PR ready</span><span><b class="draft">◇</b>PR draft</span><span><b class="todo">○</b>to do</span></div>
   <form id="auth" hidden>
-    <p class="msg">Paste a GitHub token that can read <b>manley-studios/DailyDoublet</b>. A fine-grained token with read-only Issues, Pull requests and Metadata is enough. It stays in this browser.</p>
-    <input id="token" type="password" autocomplete="off" placeholder="github_pat_…" aria-label="GitHub token">
+    <input id="token" type="password" autocomplete="off" placeholder="Token" aria-label="Token">
     <button type="submit">Show the board</button>
   </form>
   <p id="status" class="msg">Loading…</p>
@@ -76,7 +75,7 @@ async function gh(path, token) {
   const r = await fetch(path.startsWith('http') ? path : API + path, {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' } })
   if (r.status === 401 || r.status === 403 || r.status === 404) throw Object.assign(new Error('auth'), { status: r.status })
-  if (!r.ok) throw new Error(`GitHub answered ${r.status}`)
+  if (!r.ok) throw new Error(`error ${r.status}`)
   return r.json()
 }
 async function pages(path, token) {
@@ -100,7 +99,7 @@ function phaseLabel(x) {
 }
 
 async function load(token) {
-  $('status').textContent = 'Loading from GitHub…'
+  $('status').textContent = 'Loading…'
   const [issuesAll, prs] = await Promise.all([pages('/issues?state=open', token), pages('/pulls?state=open', token)])
   const inPR = new Map()
   for (const pr of prs) for (const m of (pr.body || '').matchAll(/^(?:Closes|Part of|Fixes|Resolves) #(\d+)/gm))
@@ -148,7 +147,7 @@ async function load(token) {
   $('board').innerHTML = html
   $('status').hidden = true
   $('foot').hidden = false
-  $('foot').innerHTML = `Live from GitHub, ${new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}. Tap a chip to open its issue, or its PR when one is open. Count = done or on develop. <button class="ghost" id="forget" type="button">Forget my token</button>`
+  $('foot').innerHTML = `Updated ${new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}. Tap a chip to open its issue, or its PR when one is open. Count = done or on develop. <button class="ghost" id="forget" type="button">Forget my token</button>`
   $('forget').onclick = () => { store.set(null); location.reload() }
 }
 
@@ -158,8 +157,8 @@ async function start() {
   try { await load(token) }
   catch (e) {
     if (e.status) { store.set(null); $('auth').hidden = false; $('status').hidden = false
-      $('status').innerHTML = '<span class="err">That token can’t read the repository. Paste one that can.</span>' }
-    else $('status').innerHTML = `<span class="err">Couldn’t reach GitHub (${esc(e.message)}). Reload to try again.</span>`
+      $('status').innerHTML = '<span class="err">That token didn’t work. Try another.</span>' }
+    else $('status').innerHTML = `<span class="err">Couldn’t load the board (${esc(e.message)}). Reload to try again.</span>`
   }
 }
 $('auth').addEventListener('submit', e => {
