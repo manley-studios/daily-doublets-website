@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Doublets Feature Board</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+[hidden]{display:none!important}
+html,body{margin:0}
+/* One column of features, each a row of symbols (one per sub-issue) */
+:root{--bg:#f6f7fb;--fg:#1d2233;--mute:#7a8197;--line:#e2e5ee;--done:#2f9e6a;--landed:#3d7be0;--pr:#e39a1c;--todo:#b4b9c8;--font:"Outfit",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141722;--fg:#e8eaf2;--mute:#8a90a6;--line:#262b3a;--done:#4cc48b;--landed:#6a9cf0;--pr:#f0b44a;--todo:#4a5068;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141722;--fg:#e8eaf2;--mute:#8a90a6;--line:#262b3a;--done:#4cc48b;--landed:#6a9cf0;--pr:#f0b44a;--todo:#4a5068;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 40px}
+main{max-width:560px;margin:0 auto}
+h1{font-size:22px;font-weight:700;margin:0 0 6px}
+.key{display:flex;flex-wrap:wrap;gap:14px;color:var(--mute);font-size:13px;margin-bottom:8px}
+.key b{font-weight:500;margin-right:4px}
+h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin:26px 0 6px;font-weight:500}
+.row{display:flex;flex-direction:column;gap:6px;padding:12px 0;border-bottom:1px solid var(--line)}.h{display:flex;justify-content:space-between;align-items:baseline;gap:12px}.x{color:var(--mute);font-size:13px}.chips{display:flex;flex-wrap:wrap;gap:5px}.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px 2px 6px;border:1px solid var(--line);border-radius:999px;font-size:12px;color:var(--fg);text-decoration:none}.chip i{font-style:normal;font-size:13px}.chip.done{color:var(--mute)}.chip:focus-visible{outline:2px solid var(--landed)}
+.n a,.n span{color:var(--fg);text-decoration:none;font-size:15px;font-weight:500}
+.n a:hover{text-decoration:underline}
+.dots{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+.d,.wait{display:inline-grid;place-items:center;width:22px;height:22px;font-size:15px;text-decoration:none;border-radius:6px}
+.d:focus-visible{outline:2px solid var(--landed)}
+.done{color:var(--done)}.landed{color:var(--landed)}.pr,.building,.ready,.draft{color:var(--pr)}.todo{color:var(--todo)}.draft{color:var(--pr)}
+.wait{color:var(--pr);font-weight:700}
+.c{font-family:var(--mono);font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}
+
+form{display:flex;flex-direction:column;gap:10px;margin:18px 0;max-width:460px}
+input{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--fg)}
+button{font:inherit;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--fg);color:var(--bg);cursor:pointer;align-self:flex-start}
+button.ghost{background:transparent;color:var(--mute);padding:4px 0;border:0;text-decoration:underline}
+.msg{color:var(--mute);font-size:14px;line-height:1.5}
+.err{color:#d0453a}
+</style>
+</head>
+<body>
+<!--
+  The feature board. Unlisted (not linked from the site, noindex) and holds no project data:
+  everything is read live from GitHub in the viewer's browser, with a read-only token the viewer
+  pastes once and that stays in this browser's localStorage. Without a token for the private
+  repository it shows nothing.
+
+  Grouping is automatic, from what GitHub already says:
+    In flight    a sub-issue has an open PR, or is on develop awaiting proof (needs-tracking-pass)
+    Started      some sub-issues are closed
+    Not started  the rest
+  A feature is any open issue typed Feature or with sub-issues; it drops off when it closes.
+  Open issues with no parent and no sub-issues are Standalone.
+-->
+<main>
+  <h1>Features</h1>
+  <div class="key"><span><b class="done">✓</b>done</span><span><b class="landed">●</b>on develop, needs proof</span><span><b class="ready">◆</b>PR ready</span><span><b class="draft">◇</b>PR draft</span><span><b class="todo">○</b>to do</span></div>
+  <form id="auth" hidden>
+    <p class="msg">Paste a GitHub token that can read <b>manley-studios/DailyDoublet</b>. A fine-grained token with read-only Issues, Pull requests and Metadata is enough. It stays in this browser.</p>
+    <input id="token" type="password" autocomplete="off" placeholder="github_pat_…" aria-label="GitHub token">
+    <button type="submit">Show the board</button>
+  </form>
+  <p id="status" class="msg">Loading…</p>
+  <div id="board"></div>
+  <p class="x" id="foot" hidden></p>
+</main>
+<script>
+const OWNER = 'manley-studios', REPO = 'DailyDoublet', API = `https://api.github.com/repos/${OWNER}/${REPO}`
+const KEY = 'doublets-board-token'
+const $ = id => document.getElementById(id)
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+const store = { get() { try { return localStorage.getItem(KEY) } catch { return null } },
+                set(v) { try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY) } catch {} } }
+
+async function gh(path, token) {
+  const r = await fetch(path.startsWith('http') ? path : API + path, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' } })
+  if (r.status === 401 || r.status === 403 || r.status === 404) throw Object.assign(new Error('auth'), { status: r.status })
+  if (!r.ok) throw new Error(`GitHub answered ${r.status}`)
+  return r.json()
+}
+async function pages(path, token) {
+  const out = []
+  for (let p = 1; ; p++) {
+    const r = await gh(`${path}${path.includes('?') ? '&' : '?'}per_page=100&page=${p}`, token)
+    out.push(...r); if (r.length < 100) return out
+  }
+}
+
+const SYM = { done: '✓', landed: '●', ready: '◆', draft: '◇', todo: '○' }
+const labels = i => i.labels.map(l => l.name)
+function shortTitle(t, n = 34) { t = t.replace(/^[^\w#]+/u, '').split(' — ')[0]; return t.length <= n ? t : t.slice(0, n - 1).trimEnd() + '…' }
+function featureName(t) { return shortTitle(t.split(/ — | · /)[0], 60) }
+function phaseLabel(x) {
+  const t = x.title, rest = t.includes(' — ') ? t.split(' — ').slice(1).join(' — ') : t
+  const hits = [['iOS','iOS'],['Android','And'],['Service','Svc'],['Web','Web'],['roduction','Prod']]
+    .map(([k, v]) => [rest.indexOf(k), v]).filter(([i]) => i >= 0).sort((a, b) => a[0] - b[0])
+  if (hits.length) return hits[0][1]
+  const m = t.match(/(P\d+[ab]?)\s+—/); return m ? m[1] : '#' + x.number
+}
+
+async function load(token) {
+  $('status').textContent = 'Loading from GitHub…'
+  const [issuesAll, prs] = await Promise.all([pages('/issues?state=open', token), pages('/pulls?state=open', token)])
+  const inPR = new Map()
+  for (const pr of prs) for (const m of (pr.body || '').matchAll(/^(?:Closes|Part of|Fixes|Resolves) #(\d+)/gm))
+    if (!inPR.has(+m[1])) inPR.set(+m[1], pr)
+  const issues = issuesAll.filter(i => !i.pull_request)
+  const isFeature = i => (i.type && i.type.name === 'Feature') || (i.sub_issues_summary && i.sub_issues_summary.total)
+  const features = issues.filter(isFeature).sort((a, b) => b.number - a.number)
+  const standalone = issues.filter(i => !isFeature(i) && !i.parent_issue_url)
+  const subsOf = await Promise.all(features.map(f => pages(`/issues/${f.number}/sub_issues`, token)))
+
+  const status = x => x.state === 'closed' ? 'done'
+    : inPR.has(x.number) ? (inPR.get(x.number).draft ? 'draft' : 'ready')
+    : labels(x).includes('needs-tracking-pass') ? 'landed' : 'todo'
+  const chip = (x, text) => {
+    const st = status(x), pr = inPR.get(x.number)
+    const href = pr && (st === 'draft' || st === 'ready') ? pr.html_url : x.html_url
+    const tip = pr && href === pr.html_url ? `PR #${pr.number} (${pr.draft ? 'draft' : 'ready for review'}) · #${x.number} ${x.title}` : `#${x.number} ${x.title}`
+    return `<a class="chip ${st}" href="${href}" title="${esc(tip)}"><i class="${st}">${SYM[st]}</i>${esc(text || phaseLabel(x))}</a>`
+  }
+  const tiers = { 'In flight': [], 'Started': [], 'Not started': [] }
+  features.forEach((f, k) => {
+    const subs = subsOf[k], sts = subs.map(status)
+    const done = sts.filter(s => s === 'done' || s === 'landed').length
+    const tier = sts.some(s => s === 'draft' || s === 'ready' || s === 'landed') || inPR.has(f.number) ? 'In flight'
+      : sts.includes('done') ? 'Started' : 'Not started'
+    let chips
+    if (subs.length > 12) {
+      const nd = sts.filter(s => s === 'done').length
+      chips = (nd ? `<span class="chip done"><i class="done">✓</i>${nd} closed</span>` : '') + subs.filter((s, j) => sts[j] !== 'done').map(s => chip(s)).join('')
+    } else chips = subs.map(s => chip(s)).join('') || '<span class="chip todo"><i class="todo">○</i>no phases yet</span>'
+    tiers[tier].push(`<div class="row"><div class="h"><div class="n"><a href="${f.html_url}">${esc(featureName(f.title))}</a></div>${subs.length ? `<span class="c">${done}/${subs.length}</span>` : ''}</div><div class="chips">${chips}</div></div>`)
+  })
+  let html = ''
+  for (const [name, rows] of Object.entries(tiers)) if (rows.length) html += `<h2>${name} · ${rows.length}</h2>` + rows.join('')
+  if (standalone.length) {
+    const groups = {}
+    for (const i of standalone) {
+      const k = (i.type && i.type.name) || (labels(i).includes('bug') ? 'Bug' : 'Other')
+      ;(groups[{ Bug: 'Bugs', Task: 'Tasks' }[k] || 'Other'] ||= []).push(i)
+    }
+    html += `<h2>Standalone · ${standalone.length}</h2>`
+    for (const g of ['Bugs', 'Tasks', 'Other']) if (groups[g])
+      html += `<div class="row"><div class="h"><div class="n">${g}</div><span class="c">${groups[g].length}</span></div><div class="chips">${groups[g].map(i => chip(i, shortTitle(i.title))).join('')}</div></div>`
+  }
+  $('board').innerHTML = html
+  $('status').hidden = true
+  $('foot').hidden = false
+  $('foot').innerHTML = `Live from GitHub, ${new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}. Tap a chip to open its issue, or its PR when one is open. Count = done or on develop. <button class="ghost" id="forget" type="button">Forget my token</button>`
+  $('forget').onclick = () => { store.set(null); location.reload() }
+}
+
+async function start() {
+  const token = store.get()
+  if (!token) { $('status').hidden = true; $('auth').hidden = false; return }
+  try { await load(token) }
+  catch (e) {
+    if (e.status) { store.set(null); $('auth').hidden = false; $('status').hidden = false
+      $('status').innerHTML = '<span class="err">That token can’t read the repository. Paste one that can.</span>' }
+    else $('status').innerHTML = `<span class="err">Couldn’t reach GitHub (${esc(e.message)}). Reload to try again.</span>`
+  }
+}
+$('auth').addEventListener('submit', e => {
+  e.preventDefault(); const v = $('token').value.trim(); if (!v) return
+  store.set(v); $('auth').hidden = true; $('status').hidden = false; start()
+})
+start()
+</script>
+</body>
+</html>
