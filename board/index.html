@@ -11,9 +11,9 @@
 [hidden]{display:none!important}
 html,body{margin:0}
 /* One column of features, each a row of symbols (one per sub-issue) */
-:root{--bg:#f6f7fb;--fg:#1d2233;--mute:#7a8197;--line:#e2e5ee;--done:#2f9e6a;--landed:#3d7be0;--pr:#e39a1c;--todo:#b4b9c8;--font:"Outfit",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141722;--fg:#e8eaf2;--mute:#8a90a6;--line:#262b3a;--done:#4cc48b;--landed:#6a9cf0;--pr:#f0b44a;--todo:#4a5068;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#141722;--fg:#e8eaf2;--mute:#8a90a6;--line:#262b3a;--done:#4cc48b;--landed:#6a9cf0;--pr:#f0b44a;--todo:#4a5068;color-scheme:dark}
+:root{--bg:#f6f7fb;--fg:#1d2233;--mute:#7a8197;--line:#e2e5ee;--done:#2f9e6a;--landed:#3d7be0;--pr:#e39a1c;--todo:#b4b9c8;--tagbg:#fcefd6;--tagfg:#8a5600;--branch:#1d2233;--branchfg:#f6f7fb;--rail:#d5d9e4;--font:"Outfit",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141722;--fg:#e8eaf2;--mute:#8a90a6;--line:#262b3a;--done:#4cc48b;--landed:#6a9cf0;--pr:#f0b44a;--todo:#4a5068;--tagbg:#3a2e14;--tagfg:#f0c878;--branch:#e8eaf2;--branchfg:#141722;--rail:#343a4d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141722;--fg:#e8eaf2;--mute:#8a90a6;--line:#262b3a;--done:#4cc48b;--landed:#6a9cf0;--pr:#f0b44a;--todo:#4a5068;--tagbg:#3a2e14;--tagfg:#f0c878;--branch:#e8eaf2;--branchfg:#141722;--rail:#343a4d;color-scheme:dark}
 body{background:var(--bg);color:var(--fg);font-family:var(--font);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 40px}
 main{max-width:560px;margin:0 auto}
 h1{font-size:22px;font-weight:700;margin:0 0 6px}
@@ -36,6 +36,17 @@ button{font:inherit;padding:9px 14px;border-radius:8px;border:1px solid var(--li
 button.ghost{background:transparent;color:var(--mute);padding:4px 0;border:0;text-decoration:underline}
 .msg{color:var(--mute);font-size:14px;line-height:1.5}
 .err{color:#d0453a}
+.chip.hot{border-color:var(--pr);background:var(--tagbg)}.key{color:var(--pr)}
+.sub{color:var(--mute);font-size:13px;margin:0 0 8px}
+.br{display:inline-flex;padding:3px 10px;border-radius:6px;background:var(--branch);color:var(--branchfg);font-family:var(--mono);font-size:12px}
+.kids{margin-left:13px;border-left:2px solid var(--rail);padding-left:14px;display:flex;flex-direction:column}
+.grp{display:flex;flex-direction:column;gap:2px;padding:8px 0 4px}
+.gh{font-size:13px;color:var(--mute);margin:0 0 2px}
+.p{display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:14px;line-height:20px;min-width:0}
+.p .c{flex:none;width:44px;color:var(--mute);text-decoration:none}.p .c:hover{text-decoration:underline}
+.p .t{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p .s{flex:none;width:14px;text-align:center}
+.next{flex:none;padding:0 7px;border-radius:999px;background:var(--tagbg);color:var(--tagfg);font-size:12px;font-weight:500}
 </style>
 </head>
 <body>
@@ -51,10 +62,20 @@ button.ghost{background:transparent;color:var(--mute);padding:4px 0;border:0;tex
     Not started  the rest
   A feature is any open issue typed Feature or with sub-issues; it drops off when it closes.
   Open issues with no parent and no sub-issues are Standalone.
+
+  Your desk lists every open issue or PR labelled desk-item (except the old #203 hub, which is
+  no longer shown as a feature either), sorted by the "**Gates:**" line its body starts with:
+    Gates work          the line names an issue or PR that is still open
+    Ready when you are  it has a Gates line, and nothing it names is open
+    No steps yet        it has no Gates line
+  Desk items are left out of Standalone, so each shows once.
+
+  PR stacks draws every open PR under the branch it targets: main, then develop, then each
+  stack in merge order, the top one merging first.
 -->
 <main>
   <h1>Features</h1>
-  <div class="key"><span><b class="done">✓</b>done</span><span><b class="landed">●</b>on develop, needs proof</span><span><b class="ready">◆</b>PR ready</span><span><b class="draft">◇</b>PR draft</span><span><b class="todo">○</b>to do</span></div>
+  <div class="key"><span><b class="key">▲</b>desk, gates work</span><span><b class="done">✓</b>done</span><span><b class="landed">●</b>on develop, needs proof</span><span><b class="ready">◆</b>PR ready</span><span><b class="draft">◇</b>PR draft</span><span><b class="todo">○</b>to do</span></div>
   <form id="auth" hidden>
     <input id="token" type="password" autocomplete="off" placeholder="Token" aria-label="Token">
     <button type="submit">Show the board</button>
@@ -88,6 +109,7 @@ async function pages(path, token) {
 
 const SYM = { done: '✓', landed: '●', ready: '◆', draft: '◇', todo: '○' }
 const labels = i => i.labels.map(l => l.name)
+const DESK = 'desk-item', DESK_HUB = 203
 function shortTitle(t, n = 34) { t = t.replace(/^[^\w#]+/u, '').split(' — ')[0]; return t.length <= n ? t : t.slice(0, n - 1).trimEnd() + '…' }
 function featureName(t) { return shortTitle(t.split(/ — | · /)[0], 60) }
 function phaseLabel(x) {
@@ -98,6 +120,57 @@ function phaseLabel(x) {
   const m = t.match(/(P\d+[ab]?)\s+—/); return m ? m[1] : '#' + x.number
 }
 
+// Your desk: three rows of chips, sorted by the "**Gates:**" line each item's body starts with.
+function desk(items, open, prs) {
+  if (!items.length) return ''
+  const isOpen = new Set(open.map(i => i.number)), prOf = new Map(prs.map(p => [p.number, p]))
+  const rows = { 'Gates work': [], 'Ready when you are': [], 'No steps yet': [] }
+  for (const i of items.sort((a, b) => b.number - a.number)) {
+    const m = (i.body || '').match(/\*\*Gates:\*\*\s*([^\n]*?)(?:\s*·\s*\*\*|\n|$)/)
+    const gates = m ? m[1].trim() : ''
+    const live = [...gates.matchAll(/#(\d+)/g)].map(x => +x[1]).filter(n => isOpen.has(n) && n !== i.number)
+    const row = !m ? 'No steps yet' : live.length ? 'Gates work' : 'Ready when you are'
+    const pr = i.pull_request && prOf.get(i.number)
+    const st = row === 'Gates work' ? 'key' : pr ? 'draft' : 'todo'
+    const sym = row === 'Gates work' ? '▲' : pr ? (pr.draft ? SYM.draft : SYM.ready) : SYM.todo
+    const tip = `${pr ? 'PR ' : ''}#${i.number} ${i.title}${gates ? ` · gates ${gates.replace(/\*/g, '')}` : ''}`
+    rows[row].push(`<a class="chip${row === 'Gates work' ? ' hot' : ''}" href="${i.html_url}" title="${esc(tip)}"><i class="${st}">${sym}</i>${esc(shortTitle(i.title))}</a>`)
+  }
+  let html = `<h2>Your desk · ${items.length}</h2>`
+  for (const [name, chips] of Object.entries(rows)) if (chips.length)
+    html += `<div class="row"><div class="h"><div class="n"><span>${name}</span></div><span class="c">${chips.length}</span></div><div class="chips">${chips.join('')}</div></div>`
+  return html
+}
+
+// PR stacks: every open PR under the branch it targets, each stack read top-down in merge order.
+function stacks(prs) {
+  if (!prs.length) return ''
+  const heads = new Set(prs.map(p => p.head.ref)), kids = new Map()
+  for (const p of prs) { const k = p.base.ref; kids.has(k) || kids.set(k, []); kids.get(k).push(p) }
+  const sym = p => `<span class="s pr">${p.draft ? SYM.draft : SYM.ready}</span>`
+  const node = (p, next) => `<div class="p">${sym(p)}<a class="c" href="${p.html_url}">#${p.number}</a><span class="t" title="${esc(p.title)}">${esc(p.title)}</span>${next ? '<span class="next">merges next</span>' : ''}</div>`
+  // A chain follows single children; where a branch has several, they nest below it.
+  const chain = p => { const out = [p]; let c; while ((c = kids.get(out[out.length - 1].head.ref) || []).length === 1) out.push(c[0]); return { prs: out, fork: c } }
+  const group = start => {
+    const { prs: ch, fork } = chain(start), ready = ch.filter(p => !p.draft).length
+    const head = ch.length === 1 ? '' : `<p class="gh">${ch.length} PRs · ${ready} ready${ready && ch[0].draft ? ', waiting on the drafts above them' : ''}</p>`
+    return `<div class="grp">${head}${ch.map((p, j) => node(p, j === 0 && ch.length > 1)).join('')}${fork.length ? `<div class="kids">${fork.map(group).join('')}</div>` : ''}</div>`
+  }
+  const branch = (name, label) => {
+    const list = (kids.get(name) || []).slice(), html = []
+    const stacked = list.filter(p => kids.has(p.head.ref)).sort((a, b) => chain(b).prs.length - chain(a).prs.length)
+    const single = list.filter(p => !kids.has(p.head.ref))
+    html.push(...stacked.map(group))
+    if (single.length) html.push(`<div class="grp"><p class="gh">${label}</p>${single.map(p => node(p)).join('')}</div>`)
+    return html.join('')
+  }
+  // Roots are branches no open PR produces: main, develop under it, and any other base.
+  const others = [...kids.keys()].filter(b => !heads.has(b) && b !== 'main' && b !== 'develop').sort()
+  const sub = [...['develop', ...others].filter(b => kids.has(b)).map(b => `<div class="grp"><div><span class="br">${esc(b)}</span></div><div class="kids">${branch(b, 'On their own')}</div></div>`)]
+  return `<h2>PR stacks · ${prs.length} open</h2><p class="sub">Each PR sits under the branch it targets. Read down a stack in merge order: the top one merges first.</p>` +
+    `<div><span class="br">main</span></div><div class="kids">${sub.join('')}${branch('main', 'Straight to main')}</div>`
+}
+
 async function load(token) {
   $('status').textContent = 'Loading…'
   const [issuesAll, prs] = await Promise.all([pages('/issues?state=open', token), pages('/pulls?state=open', token)])
@@ -106,8 +179,9 @@ async function load(token) {
     if (!inPR.has(+m[1])) inPR.set(+m[1], pr)
   const issues = issuesAll.filter(i => !i.pull_request)
   const isFeature = i => (i.type && i.type.name === 'Feature') || (i.sub_issues_summary && i.sub_issues_summary.total)
-  const features = issues.filter(isFeature).sort((a, b) => b.number - a.number)
-  const standalone = issues.filter(i => !isFeature(i) && !i.parent_issue_url)
+  const onDesk = i => labels(i).includes(DESK)
+  const features = issues.filter(i => isFeature(i) && i.number !== DESK_HUB).sort((a, b) => b.number - a.number)
+  const standalone = issues.filter(i => !isFeature(i) && !i.parent_issue_url && !onDesk(i))
   const subsOf = await Promise.all(features.map(f => pages(`/issues/${f.number}/sub_issues`, token)))
 
   const status = x => x.state === 'closed' ? 'done'
@@ -132,7 +206,7 @@ async function load(token) {
     } else chips = subs.map(s => chip(s)).join('') || '<span class="chip todo"><i class="todo">○</i>no phases yet</span>'
     tiers[tier].push(`<div class="row"><div class="h"><div class="n"><a href="${f.html_url}">${esc(featureName(f.title))}</a></div>${subs.length ? `<span class="c">${done}/${subs.length}</span>` : ''}</div><div class="chips">${chips}</div></div>`)
   })
-  let html = ''
+  let html = desk(issuesAll.filter(i => onDesk(i) && i.number !== DESK_HUB), issuesAll, prs) + stacks(prs)
   for (const [name, rows] of Object.entries(tiers)) if (rows.length) html += `<h2>${name} · ${rows.length}</h2>` + rows.join('')
   if (standalone.length) {
     const groups = {}
