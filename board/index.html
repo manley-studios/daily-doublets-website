@@ -70,6 +70,11 @@ button.ghost{background:transparent;color:var(--mute);padding:4px 0;border:0;tex
     No steps yet        it has no Gates line
   Desk items are left out of Standalone, so each shows once.
 
+  Prod validation lists every open issue labelled prod-validation (except the old #801 hub,
+  which is no longer shown as a feature either), split into those with a PR open or on develop
+  and those still waiting on a release. A prod story is not a sub-issue of its feature, so this is
+  the only place it shows, and a feature's row counts development only.
+
   PR stacks draws every open PR under the branch it targets: main, then develop, then each
   stack in merge order, the top one merging first.
 -->
@@ -109,7 +114,7 @@ async function pages(path, token) {
 
 const SYM = { done: '✓', landed: '●', ready: '◆', draft: '◇', todo: '○' }
 const labels = i => i.labels.map(l => l.name)
-const DESK = 'desk-item', DESK_HUB = 203
+const DESK = 'desk-item', DESK_HUB = 203, PROD = 'prod-validation', PROD_HUB = 801
 function shortTitle(t, n = 34) { t = t.replace(/^[^\w#]+/u, '').split(' — ')[0]; return t.length <= n ? t : t.slice(0, n - 1).trimEnd() + '…' }
 function featureName(t) { return shortTitle(t.split(/ — | · /)[0], 60) }
 function phaseLabel(x) {
@@ -137,6 +142,20 @@ function desk(items, open, prs) {
     rows[row].push(`<a class="chip${row === 'Gates work' ? ' hot' : ''}" href="${i.html_url}" title="${esc(tip)}"><i class="${st}">${sym}</i>${esc(shortTitle(i.title))}</a>`)
   }
   let html = `<h2>Your desk · ${items.length}</h2>`
+  for (const [name, chips] of Object.entries(rows)) if (chips.length)
+    html += `<div class="row"><div class="h"><div class="n"><span>${name}</span></div><span class="c">${chips.length}</span></div><div class="chips">${chips.join('')}</div></div>`
+  return html
+}
+
+// Prod validation: every open prod story, named by its feature, in two rows.
+function prodList(items, chip) {
+  if (!items.length) return ''
+  const rows = { 'In flight': [], 'Waiting on a release': [] }
+  for (const i of items.sort((a, b) => b.number - a.number)) {
+    const c = chip(i, featureName(i.title))
+    ;(c.includes('class="chip todo"') ? rows['Waiting on a release'] : rows['In flight']).push(c)
+  }
+  let html = `<h2>Prod validation · ${items.length}</h2>`
   for (const [name, chips] of Object.entries(rows)) if (chips.length)
     html += `<div class="row"><div class="h"><div class="n"><span>${name}</span></div><span class="c">${chips.length}</span></div><div class="chips">${chips.join('')}</div></div>`
   return html
@@ -180,8 +199,9 @@ async function load(token) {
   const issues = issuesAll.filter(i => !i.pull_request)
   const isFeature = i => (i.type && i.type.name === 'Feature') || (i.sub_issues_summary && i.sub_issues_summary.total)
   const onDesk = i => labels(i).includes(DESK)
-  const features = issues.filter(i => isFeature(i) && i.number !== DESK_HUB).sort((a, b) => b.number - a.number)
-  const standalone = issues.filter(i => !isFeature(i) && !i.parent_issue_url && !onDesk(i))
+  const onProd = i => labels(i).includes(PROD)
+  const features = issues.filter(i => isFeature(i) && i.number !== DESK_HUB && i.number !== PROD_HUB).sort((a, b) => b.number - a.number)
+  const standalone = issues.filter(i => !isFeature(i) && !i.parent_issue_url && !onDesk(i) && !onProd(i))
   const subsOf = await Promise.all(features.map(f => pages(`/issues/${f.number}/sub_issues`, token)))
 
   const status = x => x.state === 'closed' ? 'done'
@@ -206,7 +226,8 @@ async function load(token) {
     } else chips = subs.map(s => chip(s)).join('') || '<span class="chip todo"><i class="todo">○</i>no phases yet</span>'
     tiers[tier].push(`<div class="row"><div class="h"><div class="n"><a href="${f.html_url}">${esc(featureName(f.title))}</a></div>${subs.length ? `<span class="c">${done}/${subs.length}</span>` : ''}</div><div class="chips">${chips}</div></div>`)
   })
-  let html = desk(issuesAll.filter(i => onDesk(i) && i.number !== DESK_HUB), issuesAll, prs) + stacks(prs)
+  let html = desk(issuesAll.filter(i => onDesk(i) && i.number !== DESK_HUB), issuesAll, prs)
+    + prodList(issues.filter(i => onProd(i) && i.number !== PROD_HUB), chip) + stacks(prs)
   for (const [name, rows] of Object.entries(tiers)) if (rows.length) html += `<h2>${name} · ${rows.length}</h2>` + rows.join('')
   if (standalone.length) {
     const groups = {}
