@@ -75,6 +75,11 @@ button.ghost{background:transparent;color:var(--mute);padding:4px 0;border:0;tex
   and those still waiting on a release. A prod story is not a sub-issue of its feature, so this is
   the only place it shows, and a feature's row counts development only.
 
+  Maintenance lists every open issue labelled maintenance: upkeep that keeps tech debt down and
+  that no player sees. A maintenance feature gets its own row of phases, as in the tiers below, and
+  is left out of those tiers; the other maintenance issues are chips, split into those on their own
+  and those inside another feature. Maintenance issues are left out of Standalone, so each shows once.
+
   PR stacks draws every open PR under the branch it targets: main, then develop, then each
   stack in merge order, the top one merging first.
 -->
@@ -114,7 +119,7 @@ async function pages(path, token) {
 
 const SYM = { done: '✓', landed: '●', ready: '◆', draft: '◇', todo: '○' }
 const labels = i => i.labels.map(l => l.name)
-const DESK = 'desk-item', DESK_HUB = 203, PROD = 'prod-validation', PROD_HUB = 801
+const DESK = 'desk-item', DESK_HUB = 203, PROD = 'prod-validation', PROD_HUB = 801, MAINT = 'maintenance'
 function shortTitle(t, n = 34) { t = t.replace(/^[^\w#]+/u, '').split(' — ')[0]; return t.length <= n ? t : t.slice(0, n - 1).trimEnd() + '…' }
 function featureName(t) { return shortTitle(t.split(/ — | · /)[0], 60) }
 function phaseLabel(x) {
@@ -161,6 +166,15 @@ function prodList(items, chip) {
   return html
 }
 
+// Maintenance: n open maintenance issues, as maintenance features' rows of phases, then the loose ones.
+function maintenance(n, rows, loose, inFeature, chip) {
+  if (!n) return ''
+  let html = `<h2>Maintenance · ${n}</h2>` + rows.join('')
+  for (const [name, items] of [['On their own', loose], ['Inside other features', inFeature]]) if (items.length)
+    html += `<div class="row"><div class="h"><div class="n"><span>${name}</span></div><span class="c">${items.length}</span></div><div class="chips">${items.sort((a, b) => b.number - a.number).map(i => chip(i, shortTitle(i.title))).join('')}</div></div>`
+  return html
+}
+
 // PR stacks: every open PR under the branch it targets, each stack read top-down in merge order.
 function stacks(prs) {
   if (!prs.length) return ''
@@ -200,8 +214,9 @@ async function load(token) {
   const isFeature = i => (i.type && i.type.name === 'Feature') || (i.sub_issues_summary && i.sub_issues_summary.total)
   const onDesk = i => labels(i).includes(DESK)
   const onProd = i => labels(i).includes(PROD)
+  const onMaint = i => labels(i).includes(MAINT)
   const features = issues.filter(i => isFeature(i) && i.number !== DESK_HUB && i.number !== PROD_HUB).sort((a, b) => b.number - a.number)
-  const standalone = issues.filter(i => !isFeature(i) && !i.parent_issue_url && !onDesk(i) && !onProd(i))
+  const standalone = issues.filter(i => !isFeature(i) && !i.parent_issue_url && !onDesk(i) && !onProd(i) && !onMaint(i))
   const subsOf = await Promise.all(features.map(f => pages(`/issues/${f.number}/sub_issues`, token)))
 
   const status = x => x.state === 'closed' ? 'done'
@@ -213,7 +228,7 @@ async function load(token) {
     const tip = pr && href === pr.html_url ? `PR #${pr.number} (${pr.draft ? 'draft' : 'ready for review'}) · #${x.number} ${x.title}` : `#${x.number} ${x.title}`
     return `<a class="chip ${st}" href="${href}" title="${esc(tip)}"><i class="${st}">${SYM[st]}</i>${esc(text || phaseLabel(x))}</a>`
   }
-  const tiers = { 'In flight': [], 'Started': [], 'Not started': [] }
+  const tiers = { 'In flight': [], 'Started': [], 'Not started': [] }, maintRows = []
   features.forEach((f, k) => {
     const subs = subsOf[k], sts = subs.map(status)
     const done = sts.filter(s => s === 'done' || s === 'landed').length
@@ -224,10 +239,18 @@ async function load(token) {
       const nd = sts.filter(s => s === 'done').length
       chips = (nd ? `<span class="chip done"><i class="done">✓</i>${nd} closed</span>` : '') + subs.filter((s, j) => sts[j] !== 'done').map(s => chip(s)).join('')
     } else chips = subs.map(s => chip(s)).join('') || '<span class="chip todo"><i class="todo">○</i>no phases yet</span>'
-    tiers[tier].push(`<div class="row"><div class="h"><div class="n"><a href="${f.html_url}">${esc(featureName(f.title))}</a></div>${subs.length ? `<span class="c">${done}/${subs.length}</span>` : ''}</div><div class="chips">${chips}</div></div>`)
+    ;(onMaint(f) ? maintRows : tiers[tier]).push(`<div class="row"><div class="h"><div class="n"><a href="${f.html_url}">${esc(featureName(f.title))}</a></div>${subs.length ? `<span class="c">${done}/${subs.length}</span>` : ''}</div><div class="chips">${chips}</div></div>`)
   })
+  // A maintenance phase already shows on its feature's row; one inside any other feature shows here too.
+  const maintFeatures = new Set(features.filter(onMaint).map(f => String(f.number)))
+  const parentOf = i => (i.parent_issue_url || '').split('/').pop()
+  const maintIssues = issues.filter(i => onMaint(i) && !isFeature(i))
+  const maintLoose = maintIssues.filter(i => !i.parent_issue_url)
+  const maintInside = maintIssues.filter(i => i.parent_issue_url && !maintFeatures.has(parentOf(i)))
   let html = desk(issuesAll.filter(i => onDesk(i) && i.number !== DESK_HUB), issuesAll, prs)
-    + prodList(issues.filter(i => onProd(i) && i.number !== PROD_HUB), chip) + stacks(prs)
+    + prodList(issues.filter(i => onProd(i) && i.number !== PROD_HUB), chip)
+    + maintenance(issues.filter(onMaint).length, maintRows, maintLoose, maintInside, chip)
+    + stacks(prs)
   for (const [name, rows] of Object.entries(tiers)) if (rows.length) html += `<h2>${name} · ${rows.length}</h2>` + rows.join('')
   if (standalone.length) {
     const groups = {}
